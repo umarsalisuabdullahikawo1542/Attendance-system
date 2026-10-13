@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { background: #f0f2f5; color: #1a1a1a; }
+
+  /* ===== LOGIN ===== */
+  #loginScreen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  }
+  .login-box {
+    background: #fff; padding: 40px; border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 420px;
+  }
+  .login-box h1 { color: #1e3a8a; text-align: center; margin-bottom: 8px; font-size: 22px; }
+  .login-box p.sub { text-align: center; color: #666; margin-bottom: 24px; font-size: 13px; }
+  .login-box label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #333; }
+  .login-box input, .login-box select {
+    width: 100%; padding: 11px 14px; border: 2px solid #e2e8f0; border-radius: 8px;
+    margin-bottom: 16px; font-size: 14px; transition: 0.2s;
+  }
+  .login-box input:focus, .login-box select:focus { outline: none; border-color: #3b82f6; }
+  .btn-primary {
+    width: 100%; padding: 12px; background: #1e3a8a; color: #fff; border: none;
+    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.2s;
+  }
+  .btn-primary:hover { background: #3b82f6; }
+  .login-hint { font-size: 12px; color: #666; text-align: center; margin-top: 16px; line-height: 1.6; }
+  .login-hint code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #1e3a8a; }
+
+  /* ===== APP LAYOUT ===== */
+  #app { display: none; min-height: 100vh; }
+  .topbar {
+    background: #1e3a8a; color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 10px;
+  }
+  .topbar h1 { font-size: 17px; font-weight: 600; }
+  .topbar .user-info { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+  .btn-logout {
+    background: #ef4444; color: #fff; border: none; padding: 8px 16px;
+    border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .btn-logout:hover { background: #dc2626; }
+
+  .container { max-width: 1500px; margin: 0 auto; padding: 24px; }
+
+  .page-title {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+  }
+  .page-title h2 { color: #1e3a8a; font-size: 22px; }
+  .page-title .course-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  /* ===== STATS BAR ===== */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: #fff; padding: 16px; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #3b82f6;
+  }
+  .stat-card.warn { border-left-color: #f59e0b; }
+  .stat-card.danger { border-left-color: #ef4444; }
+  .stat-card.success { border-left-color: #10b981; }
+  .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #1e293b; margin-top: 4px; }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    background: #fff; padding: 14px 18px; border-radius: 10px;
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .toolbar input, .toolbar select {
+    padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px;
+  }
+  .toolbar input:focus, .toolbar select:focus { outline: none; border-color: #3b82f6; }
+  .toolbar input[type="text"] { flex: 1; min-width: 200px; }
+  .btn {
+    padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex;
+    align-items: center; gap: 6px;
+  }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-blue { background: #3b82f6; color: #fff; } .btn-blue:hover { background: #2563eb; }
+  .btn-green { background: #10b981; color: #fff; } .btn-green:hover { background: #059669; }
+  .btn-red { background: #ef4444; color: #fff; } .btn-red:hover { background: #dc2626; }
+  .btn-orange { background: #f59e0b; color: #fff; } .btn-orange:hover { background: #d97706; }
+  .btn-gray { background: #64748b; color: #fff; } .btn-gray:hover { background: #475569; }
+    /* ===== REGISTER TABLE ===== */
+  .table-wrap {
+    background: #fff; border-radius: 10px; overflow: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); max-height: 70vh;
+  }
+  table.register {
+    border-collapse: collapse; width: 100%; font-size: 12px; min-width: 1200px;
+  }
+  table.register thead th {
+    background: #1e3a8a; color: #fff; padding: 10px 6px;
+    position: sticky; top: 0; z-index: 10; font-weight: 600; text-align: center;
+    border: 1px solid #1e40af; font-size: 11px;
+  }
+  table.register thead th.title-row {
+    background: #7c3aed; font-size: 15px; letter-spacing: 2px; padding: 12px;
+    border-bottom: 2px solid #5b21b6; text-align: center;
+  }
+  table.register tbody td {
+    padding: 7px 6px; border: 1px solid #d1d5db; vertical-align: middle;
+    background: #fff;
+  }
+  table.register tbody tr:nth-child(even) td { background: #f8fafc; }
+  table.register tbody tr:hover td { background: #eff6ff !important; }
+  table.register tbody tr.at-risk td { background: #fef2f2 !important; }
+  table.register tbody tr.at-risk:hover td { background: #fee2e2 !important; }
+  .col-sn { width: 45px; text-align: center; font-weight: 600; }
+  .col-name { min-width: 220px; font-weight: 500; text-transform: uppercase; }
+  .col-matric { width: 115px; font-family: 'Courier New', monospace; font-size: 11px; }
+  .col-bar { width: 130px; padding: 6px !important; }
+  .col-week { width: 42px; text-align: center; }
+  .col-actions { width: 80px; text-align: center; }
+
+  .progress-cell { display: flex; align-items: center; gap: 6px; }
+  .progress-bar {
+    flex: 1; height: 18px; background: #e5e7eb; border-radius: 3px; overflow: hidden;
+  }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+  .progress-fill.green { background: #a9d08e; }
+  .progress-fill.orange { background: #f4b183; }
+  .progress-label { font-size: 11px; font-weight: 700; min-width: 36px; text-align: right; }
+
+  .status {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; font-size: 13px; color: #fff;
+    font-weight: 700;
+  }
+  .status.present { background: #70ad47; }
+  .status.absent { background: #e74c3c; }
+
+  /* ===== MARK ATTENDANCE PANEL ===== */
+  .mark-panel {
+    background: #fff; border-radius: 10px; padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px; display: none;
+  }
+  .mark-panel.active { display: block; }
+  .mark-panel h3 { color: #1e3a8a; margin-bottom: 14px; font-size: 16px; }
+  .mark-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .mark-list {
+    max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0;
+    border-radius: 8px;
+  }
+  .mark-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+  }
+  .mark-item:last-child { border-bottom: none; }
+  .mark-item:hover { background: #f8fafc; }
+  .mark-item .student-info { font-size: 13px; }
+  .mark-item .student-info strong { display: block; color: #1e293b; }
+  .mark-item .student-info span { color: #64748b; font-size: 11px; font-family: monospace; }
+  .toggle-group { display: flex; gap: 6px; }
+  .toggle-btn {
+    padding: 6px 14px; border: 2px solid #e2e8f0; background: #fff;
+    border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: 0.15s;
+  }
+  .toggle-btn.present.active { background: #70ad47; color: #fff; border-color: #70ad47; }
+  .toggle-btn.absent.active { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+  .toggle-btn:hover { transform: translateY(-1px); }
+
+  /* ===== ADMIN PANEL ===== */
+  .admin-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 20px;
+  }
+  .admin-card {
+    background: #fff; padding: 20px; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .admin-card h3 { color: #1e3a8a; font-size: 15px; margin-bottom: 12px; }
+  .admin-card input, .admin-card select {
+    width: 100%; padding: 9px 12px; border: 2px solid #e2e8f0;
+    border-radius: 8px; margin-bottom: 10px; font-size: 13px;
+  }
+  .admin-card input:focus, .admin-card select:focus { outline: none; border-color: #3b82f6; }
+
+  /* ===== STUDENT PORTAL ===== */
+  .student-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .course-card {
+    background: #fff; padding: 18px; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 4px solid #3b82f6;
+  }
+  .course-card h4 { color: #1e293b; font-size: 15px; margin-bottom: 6px; }
+  .course-card .code { color: #3b82f6; font-size: 12px; font-weight: 600; }
+  .course-card .pct { font-size: 32px; font-weight: 700; margin: 10px 0; }
+  .course-card .pct.good { color: #10b981; }
+  .course-card .pct.bad { color: #ef4444; }
+  .course-card .elig { font-size: 12px; padding: 4px 10px; border-radius: 20px; display: inline-block; }
+  .course-card .elig.yes { background: #d1fae5; color: #065f46; }
+  .course-card .elig.no { background: #fee2e2; color: #991b1b; }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    background: #fff; padding: 60px 30px; border-radius: 10px;
+    text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .empty-state .icon { font-size: 60px; margin-bottom: 16px; }
+  .empty-state h3 { color: #1e3a8a; font-size: 20px; margin-bottom: 8px; }
+  .empty-state p { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: #fff;
+    padding: 12px 20px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    opacity: 0; transform: translateY(20px); transition: 0.3s; z-index: 9999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #10b981; }
+  .toast.error { background: #ef4444; }
+
+  .btn-icon {
+    background: transparent; border: none; cursor: pointer; font-size: 14px;
+    padding: 4px 8px; border-radius: 4px; transition: 0.15s;
+  }
+  .btn-icon:hover { background: #fee2e2; }
+</style>
+</head>
+<body>
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>🎓 Attendance Management System</h1>
+    <p class="sub">Institution • Faculty • Department • Course</p>
+
+    <label>Select Role</label>
+    <select id="role">
+      <option value="admin">Institution Admin</option>
+      <option value="lecturer">Lecturer</option>
+      <option value="student">Student</option>
+    </select>
+
+    <label>Email / Matric No</label>
+    <input type="text" id="email" placeholder="admin@fug.edu.ng" />
+
+    <label>Password</label>
+    <input type="password" id="password" placeholder="any password" />
+
+    <button class="btn-primary" onclick="login()">Login →</button>
+
+    <div class="login-hint">
+      <strong>Demo credentials (any password):</strong><br>
+      Admin: <code>admin@fug.edu.ng</code><br>
+      Lecturer: <code>lecturer@fug.edu.ng</code><br>
+      Student: any matric you've added
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app">
+  <div class="topbar">
+    <h1>🎓 Attendance Management — <span id="instName">Federal University Gusau</span></h1>
+    <div class="user-info">
+      <span class="badge" id="roleBadge">ADMIN</span>
+      <span id="userName">admin@fug.edu.ng</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ========== ADMIN VIEW ========== -->
+    <div id="adminView" style="display:none">
+      <div class="page-title">
+        <div><h2>Admin Dashboard</h2>
+        <div class="course-meta">Manage faculties, departments, courses, lecturers & students</div></div>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-card">
+          <h3>➕ Add Lecturer & Assign Course</h3>
+          <input type="text" id="lecName" placeholder="Full Name (e.g. Dr. Ahmad Bello)" />
+          <input type="email" id="lecEmail" placeholder="Email" />
+          <select id="lecCourse"></select>
+          <button class="btn btn-green btn-sm" style="width:100%" onclick="addLecturer()">Add & Assign</button>
+        </div>
+
+        <div class="admin-card">
+          <h3>📚 Add Course</h3>
+          <input type="text" id="courseCodeInput" placeholder="Course Code (CPT122)" />
+          <input type="text" id="courseTitleInput" placeholder="Course Title" />
+          <input type="text" id="courseDeptInput" placeholder="Department (Computer Science)" />
+          <button class="btn btn-green btn-sm" style="width:100%" onclick="addCourse()">Add Course</button>
+        </div>
+
+        <div class="admin-card">
+          <h3>📊 System Summary</h3>
+          <div id="adminStats" style="font-size:13px;line-height:1.9;color:#334155"></div>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-card" style="grid-column: span 2;">
+          <h3>👨‍🏫 Lecturers</h3>
+          <div id="lecturersList" style="font-size:13px"></div>
+        </div>
+        <div class="admin-card">
+          <h3>📖 Courses</h3>
+          <div id="coursesList" style="font-size:13px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== LECTURER VIEW ========== -->
+    <div id="lecturerView" style="display:none">
+      <div class="page-title">
+        <div>
+          <h2>📋 Attendance Register — <span id="courseCode">—</span></h2>
+          <div class="course-meta" id="courseMeta"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-green" onclick="openAddStudentModal()">➕ Add Student</button>
+          <button class="btn btn-blue" onclick="toggleMarkPanel()">✍️ Take Attendance</button>
+          <button class="btn btn-red" onclick="exportPDF()">📄 Export PDF</button>
+          <button class="btn btn-green" onclick="exportExcel()">📊 Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Mark attendance panel -->
+      <div class="mark-panel" id="markPanel">
+        <h3>✍️ Mark Attendance — <span id="markWeekLabel">Week 1</span></h3>
+        <div class="mark-controls">
+          <select id="weekSelect" onchange="loadMarkList()"></select>
+          <button class="btn btn-green btn-sm" onclick="markAll('P')">✅ All Present</button>
+          <button class="btn btn-red btn-sm" onclick="markAll('A')">❌ All Absent</button>
+          <button class="btn btn-blue btn-sm" onclick="saveAttendance()">💾 Save Attendance</button>
+          <button class="btn btn-gray btn-sm" onclick="toggleMarkPanel()">Cancel</button>
+        </div>
+        <input type="text" id="markSearch" placeholder="🔍 Search student..." 
+               oninput="filterMarkList()" 
+               style="width:100%;padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:10px" />
+        <div class="mark-list" id="markList"></div>
+      </div>
+
+      <div class="stats" id="lecturerStats"></div>
+
+      <div class="toolbar">
+        <input type="text" id="searchStudent" placeholder="🔍 Search by name or matric..." oninput="renderRegister()" />
+        <select id="filterAttendance" onchange="renderRegister()">
+          <option value="all">All Students</option>
+          <option value="atrisk">⚠️ At Risk (&lt; 75%)</option>
+          <option value="perfect">⭐ Perfect (100%)</option>
+        </select>
+        <select id="sortBy" onchange="renderRegister()">
+          <option value="sn">Sort: S/N</option>
+          <option value="name">Sort: Name</option>
+          <option value="att_asc">Sort: Attendance ↑</option>
+          <option value="att_desc">Sort: Attendance ↓</option>
+        </select>
+      </div>
+
+      <div id="registerArea"></div>
+    </div>
+
+    <!-- ========== STUDENT VIEW ========== -->
+    <div id="studentView" style="display:none">
+      <div class="page-title">
+        <div>
+          <h2>👤 My Attendance</h2>
+          <div class="course-meta" id="studentMeta"></div>
+        </div>
+      </div>
+      <div class="student-cards" id="studentCards"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ ADD STUDENT MODAL ============ -->
+<div id="studentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;padding:28px;border-radius:12px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <h3 style="color:#1e3a8a;margin-bottom:16px">➕ Add New Student</h3>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Matric Number</label>
+    <input type="text" id="newStudentMatric" placeholder="U25CSC1001" 
+      style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:12px;font-size:14px" />
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Full Name</label>
+    <input type="text" id="newStudentName" placeholder="JA'AFAR IBRAHIM" 
+      style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:16px;font-size:14px" />
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1" onclick="closeAddStudentModal()">Cancel</button>
+      <button class="btn btn-green" style="flex:2" onclick="confirmAddStudent()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* =================================================================
+   DATA LAYER — Empty system, ready to be filled by lecturer
+   ================================================================= */
+
+const TOTAL_WEEKS = 12;
+
+// Institution / Faculty / Department structure
+const institution = {
+  name: "Federal University Gusau",
+  faculties: ["Faculty of Science"],
+  departments: ["Computer Science"]
+};
+
+// Courses (admin can add more)
+let courses = [
+  {
+    code: "CPT122",
+    title: "Introduction to Computer Programming",
+    department: "Computer Science",
+    level: "100 Level",
+    session: "2024/2025",
+    semester: "1st Semester",
+    students: [],       // EMPTY — lecturer will add students
+    lecturer: "lecturer@fug.edu.ng"
+  }
+];
+
+// Lecturers
+let lecturers = [
+  { name: "Dr. Ahmad Bello", email: "lecturer@fug.edu.ng", course: "CPT122" }
+];
+
+// Current session
+let currentUser = { role: null, email: null, activeCourse: null };
+
+/* =================================================================
+   UTILITIES
+   ================================================================= */
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + type;
+  setTimeout(() => t.className = "toast " + type, 2800);
+}
+
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function uid() { return "id_" + Math.random().toString(36).slice(2, 10); }
+
+/* =================================================================
+   AUTH
+   ================================================================= */
+function login() {
+  const role = document.getElementById("role").value;
+  const email = document.getElementById("email").value.trim();
+  const pwd = document.getElementById("password").value;
+
+  if (!email || !pwd) { showToast("Please fill all fields", "error"); return; }
+
+  // Student check
+  if (role === "student") {
+    const found = courses.flatMap(c => c.students).find(s => s.matric.toLowerCase() === email.toLowerCase());
+    if (!found) { showToast("❌ No student found with that matric", "error"); return; }
+  }
+
+  currentUser = { role, email, activeCourse: courses[0]?.code || null };
+
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("roleBadge").textContent = role.toUpperCase();
+  document.getElementById("userName").textContent = email;
+
+  if (role === "admin") showAdmin();
+  else if (role === "lecturer") showLecturer();
+  else showStudent(email);
+}
+
+function logout() {
+  currentUser = { role: null, email: null, activeCourse: null };
+  document.getElementById("app").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("email").value = "";
+  document.getElementById("password").value = "";
+  document.getElementById("adminView").style.display = "none";
+  document.getElementById("lecturerView").style.display = "none";
+  document.getElementById("studentView").style.display = "none";
+}
+
+/* =================================================================
+   ADMIN VIEW
+   ================================================================= */
+function showAdmin() {
+  document.getElementById("adminView").style.display = "block";
+  document.getElementById("lecturerView").style.display = "none";
+  document.getElementById("studentView").style.display = "none";
+
+  // Populate course select
+  const sel = document.getElementById("lecCourse");
+  sel.innerHTML = courses.map(c => `<option value="${c.code}">${c.code} — ${c.title}</option>`).join("");
+
+  renderAdminStats();
+  renderLecturersList();
+  renderCoursesList();
+}
+
+function renderAdminStats() {
+  const totalStudents = courses.reduce((a, c) => a + c.students.length, 0);
+  document.getElementById("adminStats").innerHTML = `
+    <div><strong>Institution:</strong> ${institution.name}</div>
+    <div><strong>Faculties:</strong> ${institution.faculties.length}</div>
+    <div><strong>Departments:</strong> ${institution.departments.length}</div>
+    <div><strong>Courses:</strong> ${courses.length}</div>
+    <div><strong>Lecturers:</strong> ${lecturers.length}</div>
+    <div><strong>Total Students:</strong> ${totalStudents}</div>
+  `;
+}
+
+function renderLecturersList() {
+  const el = document.getElementById("lecturersList");
+  if (lecturers.length === 0) {
+    el.innerHTML = `<p style="color:#94a3b8">No lecturers added yet.</p>`;
+    return;
+  }
+  el.innerHTML = lecturers.map((l, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div>
+        <strong>${l.name}</strong>
+        <div style="color:#64748b;font-size:12px">${l.email} → ${l.course}</div>
+      </div>
+      <button class="btn-icon" onclick="removeLecturer(${i})" title="Remove">🗑️</button>
+    </div>
+  `).join("");
+}
+
+function renderCoursesList() {
+  const el = document.getElementById("coursesList");
+  el.innerHTML = courses.map((c) => `
+    <div style="padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <strong style="color:#1e3a8a">${c.code}</strong> — ${c.title}
+      <div style="color:#64748b;font-size:12px">${c.department} • ${c.level} • ${c.students.length} students</div>
+    </div>
+  `).join("");
+}
+
+function addLecturer() {
+  const name = document.getElementById("lecName").value.trim();
+  const email = document.getElementById("lecEmail").value.trim();
+  const courseCode = document.getElementById("lecCourse").value;
+  if (!name || !email) { showToast("Please fill all fields", "error"); return; }
+  if (lecturers.some(l => l.email.toLowerCase() === email.toLowerCase())) {
+    showToast("⚠️ Lecturer with this email already exists", "error"); return;
+  }
+  lecturers.push({ name, email, course: courseCode });
+  const course = courses.find(c => c.code === courseCode);
+  if (course) course.lecturer = email;
+  document.getElementById("lecName").value = "";
+  document.getElementById("lecEmail").value = "";
+  renderAdminStats();
+  renderLecturersList();
+  showToast(`✅ ${name} added & assigned to ${courseCode}`, "success");
+}
+
+function removeLecturer(i) {
+  if (!confirm("Remove this lecturer?")) return;
+  lecturers.splice(i, 1);
+  renderAdminStats();
+  renderLecturersList();
+  showToast("Lecturer removed", "success");
+}
+
+function addCourse() {
+  const code = document.getElementById("courseCodeInput").value.trim().toUpperCase();
+  const title = document.getElementById("courseTitleInput").value.trim();
+  const dept = document.getElementById("courseDeptInput").value.trim() || "Computer Science";
+  if (!code || !title) { showToast("Please fill all fields", "error"); return; }
+  if (courses.some(c => c.code === code)) {
+    showToast("⚠️ Course code already exists", "error"); return;
+  }
+  courses.push({
+    code, title, department: dept, level: "100 Level",
+    session: "2024/2025", semester: "1st Semester",
+    students: [], lecturer: null
+  });
+  document.getElementById("courseCodeInput").value = "";
+  document.getElementById("courseTitleInput").value = "";
+  document.getElementById("courseDeptInput").value = "";
+  showAdmin();
+  showToast(`✅ Course ${code} added`, "success");
+}
+</script>
+<script>
+/* =================================================================
+   LECTURER VIEW
+   ================================================================= */
+function getActiveCourse() {
+  return courses.find(c => c.code === currentUser.activeCourse) || courses[0];
+}
+
+function showLecturer() {
+  document.getElementById("lecturerView").style.display = "block";
+  document.getElementById("adminView").style.display = "none";
+  document.getElementById("studentView").style.display = "none";
+
+  const c = getActiveCourse();
+  if (!c) {
+    document.getElementById("registerArea").innerHTML =
+      `<div class="empty-state"><div class="icon">📚</div><h3>No course assigned</h3><p>Contact admin to assign a course.</p></div>`;
+    return;
+  }
+
+  document.getElementById("courseCode").textContent = c.code;
+  document.getElementById("courseMeta").textContent =
+    `${c.title} | ${c.department} | ${c.level} | ${c.session} • ${c.semester}`;
+
+  // Populate week dropdown
+  const weekSel = document.getElementById("weekSelect");
+  weekSel.innerHTML = "";
+  for (let i = 1; i <= TOTAL_WEEKS; i++) {
+    weekSel.innerHTML += `<option value="${i}">Week ${i}</option>`;
+  }
+
+  renderLecturerStats();
+  renderRegister();
+}
+
+function renderLecturerStats() {
+  const c = getActiveCourse();
+  if (!c) return;
+  const total = c.students.length;
+
+  let avg = 0, atRisk = 0, perfect = 0;
+  if (total > 0) {
+    const rates = c.students.map(s => calcAttendance(s).attendedPct);
+    avg = Math.round(rates.reduce((a, b) => a + b, 0) / total);
+    atRisk = rates.filter(r => r < 75).length;
+    perfect = rates.filter(r => r === 100).length;
+  }
+
+  document.getElementById("lecturerStats").innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value">${total}</div></div>
+    <div class="stat-card success"><div class="stat-label">Average Attendance</div><div class="stat-value">${avg}%</div></div>
+    <div class="stat-card warn"><div class="stat-label">At Risk (&lt;75%)</div><div class="stat-value">${atRisk}</div></div>
+    <div class="stat-card"><div class="stat-label">Perfect (100%)</div><div class="stat-value">${perfect}</div></div>
+    <div class="stat-card"><div class="stat-label">Sessions Held</div><div class="stat-value">${TOTAL_WEEKS}</div></div>
+  `;
+}
+
+function calcAttendance(student) {
+  const held = student.weeks.filter(w => w === "P" || w === "A").length;
+  const present = student.weeks.filter(w => w === "P").length;
+  const toAttendPct = Math.round((held / TOTAL_WEEKS) * 100);
+  const attendedPct = held > 0 ? Math.round((present / held) * 100) : 0;
+  return { held, present, toAttendPct, attendedPct };
+}
+
+/* =================================================================
+   REGISTER TABLE
+   ================================================================= */
+function renderRegister() {
+  const c = getActiveCourse();
+  if (!c) return;
+  const area = document.getElementById("registerArea");
+
+  if (c.students.length === 0) {
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">👥</div>
+        <h3>No students yet</h3>
+        <p>Click <strong>"➕ Add Student"</strong> above to start building your class register.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const search = (document.getElementById("searchStudent").value || "").toLowerCase();
+  const filter = document.getElementById("filterAttendance").value;
+  const sort = document.getElementById("sortBy").value;
+
+  let list = c.students.filter(s => {
+    if (search && !s.name.toLowerCase().includes(search) && !s.matric.toLowerCase().includes(search)) return false;
+    const { attendedPct } = calcAttendance(s);
+    if (filter === "atrisk" && attendedPct >= 75) return false;
+    if (filter === "perfect" && attendedPct !== 100) return false;
+    return true;
+  });
+
+  if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sort === "att_asc") list.sort((a, b) => calcAttendance(a).attendedPct - calcAttendance(b).attendedPct);
+  else if (sort === "att_desc") list.sort((a, b) => calcAttendance(b).attendedPct - calcAttendance(a).attendedPct);
+  else list.sort((a, b) => a.sn - b.sn);
+
+  // Header
+  let header = `<tr><th class="title-row" colspan="${6 + TOTAL_WEEKS}">ATTENDANCE REGISTER — ${c.code}</th></tr>
+    <tr>
+      <th>S/N</th><th>NAMES</th><th>METRIC NO</th>
+      <th>To Attend</th><th>Attended</th><th>Action</th>`;
+  for (let i = 1; i <= TOTAL_WEEKS; i++) header += `<th class="col-week">${ordinal(i)}</th>`;
+  header += `</tr>`;
+
+  let body = "";
+  list.forEach(s => {
+    const { toAttendPct, attendedPct } = calcAttendance(s);
+    const barColor = attendedPct >= 75 ? "green" : "orange";
+    const atRisk = attendedPct < 75 && s.weeks.some(w => w) ? "at-risk" : "";
+
+    body += `<tr class="${atRisk}">
+      <td class="col-sn">${s.sn}</td>
+      <td class="col-name">${s.name}</td>
+      <td class="col-matric">${s.matric}</td>
+      <td class="col-bar">
+        <div class="progress-cell">
+          <div class="progress-bar"><div class="progress-fill ${barColor}" style="width:${toAttendPct}%"></div></div>
+          <span class="progress-label">${toAttendPct}%</span>
+        </div>
+      </td>
+      <td class="col-bar">
+        <div class="progress-cell">
+          <div class="progress-bar"><div class="progress-fill ${barColor}" style="width:${attendedPct}%"></div></div>
+          <span class="progress-label">${attendedPct}%</span>
+        </div>
+      </td>
+      <td class="col-actions">
+        <button class="btn-icon" onclick="deleteStudent('${s.matric}')" title="Delete">🗑️</button>
+      </td>`;
+
+    s.weeks.forEach(w => {
+      if (w === "P") body += `<td class="col-week"><span class="status present">✓</span></td>`;
+      else if (w === "A") body += `<td class="col-week"><span class="status absent">✗</span></td>`;
+      else body += `<td class="col-week"></td>`;
+    });
+    body += `</tr>`;
+  });
+
+  area.innerHTML = `<div class="table-wrap"><table class="register"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* =================================================================
+   ADD / DELETE STUDENT (Lecturer only)
+   ================================================================= */
+function openAddStudentModal() {
+  document.getElementById("studentModal").style.display = "flex";
+  document.getElementById("newStudentMatric").value = "";
+  document.getElementById("newStudentName").value = "";
+  document.getElementById("newStudentMatric").focus();
+}
+
+function closeAddStudentModal() {
+  document.getElementById("studentModal").style.display = "none";
+}
+
+function confirmAddStudent() {
+  const matric = document.getElementById("newStudentMatric").value.trim().toUpperCase();
+  const name = document.getElementById("newStudentName").value.trim().toUpperCase();
+  if (!matric || !name) { showToast("Please fill all fields", "error"); return; }
+
+  const c = getActiveCourse();
+  if (c.students.some(s => s.matric === matric)) {
+    showToast("⚠️ Student with this matric already exists", "error"); return;
+  }
+
+  c.students.push({
+    sn: c.students.length + 1,
+    name, matric,
+    weeks: new Array(TOTAL_WEEKS).fill("")
+  });
+
+  closeAddStudentModal();
+  renderLecturerStats();
+  renderRegister();
+  showToast(`✅ ${name} added to ${c.code}`, "success");
+}
+
+function deleteStudent(matric) {
+  const c = getActiveCourse();
+  const s = c.students.find(x => x.matric === matric);
+  if (!s) return;
+  if (!confirm(`Remove ${s.name} (${s.matric}) from this course?`)) return;
+  c.students = c.students.filter(x => x.matric !== matric);
+  // Re-number S/N
+  c.students.forEach((st, i) => st.sn = i + 1);
+  renderLecturerStats();
+  renderRegister();
+  showToast("Student removed", "success");
+}
+
+/* =================================================================
+   MARK ATTENDANCE
+   ================================================================= */
+function toggleMarkPanel() {
+  const p = document.getElementById("markPanel");
+  p.classList.toggle("active");
+  if (p.classList.contains("active")) loadMarkList();
+}
+
+function loadMarkList() {
+  const c = getActiveCourse();
+  const week = parseInt(document.getElementById("weekSelect").value);
+  document.getElementById("markWeekLabel").textContent = `Week ${week}`;
+  const weekIdx = week - 1;
+
+  if (c.students.length === 0) {
+    document.getElementById("markList").innerHTML =
+      `<p style="padding:20px;color:#94a3b8;text-align:center">No students yet. Add students first.</p>`;
+    return;
+  }
+
+  let html = "";
+  c.students.forEach(s => {
+    const status = s.weeks[weekIdx];
+    const isPresent = status === "P";
+    const isAbsent = status === "A";
+
+    html += `<div class="mark-item" data-name="${s.name.toLowerCase()}" data-matric="${s.matric.toLowerCase()}">
+      <div class="student-info">
+        <strong>${s.name}</strong>
+        <span>${s.matric}</span>
+      </div>
+      <div class="toggle-group">
+        <button class="toggle-btn present ${isPresent ? 'active' : ''}" 
+                onclick="setMark('${s.matric}', ${weekIdx}, 'P')">✓ Present</button>
+        <button class="toggle-btn absent ${isAbsent ? 'active' : ''}" 
+                onclick="setMark('${s.matric}', ${weekIdx}, 'A')">✗ Absent</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById("markList").innerHTML = html;
+}
+
+function setMark(matric, weekIdx, status) {
+  const c = getActiveCourse();
+  const s = c.students.find(x => x.matric === matric);
+  if (!s) return;
+  s.weeks[weekIdx] = status;
+  loadMarkList();
+}
+
+function markAll(status) {
+  const c = getActiveCourse();
+  const week = parseInt(document.getElementById("weekSelect").value);
+  const weekIdx = week - 1;
+  c.students.forEach(s => s.weeks[weekIdx] = status);
+  loadMarkList();
+  showToast(`Marked all as ${status === "P" ? "present" : "absent"}`, "success");
+}
+
+function filterMarkList() {
+  const q = document.getElementById("markSearch").value.toLowerCase();
+  document.querySelectorAll("#markList .mark-item").forEach(el => {
+    const match = el.dataset.name.includes(q) || el.dataset.matric.includes(q);
+    el.style.display = match ? "flex" : "none";
+  });
+}
+
+function saveAttendance() {
+  renderLecturerStats();
+  renderRegister();
+  showToast("💾 Attendance saved successfully", "success");
+}
+
+/* =================================================================
+   EXPORT — PDF & EXCEL
+   ================================================================= */
+function exportPDF() {
+  const c = getActiveCourse();
+  if (!c || c.students.length === 0) { showToast("No data to export", "error"); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+  doc.setFontSize(16);
+  doc.setTextColor(30, 58, 138);
+  doc.text("ATTENDANCE REGISTER", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
+
+  doc.setFontSize(11);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`${c.code} — ${c.title} | ${c.department} | ${c.level}`, doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
+  doc.text(`${c.session} • ${c.semester}`, doc.internal.pageSize.getWidth() / 2, 76, { align: "center" });
+
+  const head = [["S/N", "NAMES", "METRIC NO", "To Attend", "Attended",
+    ...Array.from({ length: TOTAL_WEEKS }, (_, i) => `${ordinal(i + 1)}`)]
+  ];
+
+  const body = c.students.map(s => {
+    const { toAttendPct, attendedPct } = calcAttendance(s);
+    return [
+      s.sn, s.name, s.matric, toAttendPct + "%", attendedPct + "%",
+      ...s.weeks.map(w => w === "P" ? "✓" : w === "A" ? "✗" : "")
+    ];
+  });
+
+  doc.autoTable({
+    head, body,
+    startY: 95,
+    styles: { fontSize: 7, cellPadding: 3, halign: "center" },
+    headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: "bold" },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      1: { cellWidth: 140, halign: "left" },
+      2: { cellWidth: 70 },
+      3: { cellWidth: 50 },
+      4: { cellWidth: 50 }
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] }
+  });
+
+  doc.save(`${c.code}_Attendance_Register.pdf`);
+  showToast("📄 PDF exported", "success");
+}
+
+function exportExcel() {
+  const c = getActiveCourse();
+  if (!c || c.students.length === 0) { showToast("No data to export", "error"); return; }
+
+  const header = ["S/N", "NAMES", "METRIC NO", "To Attend", "Attended",
+    ...Array.from({ length: TOTAL_WEEKS }, (_, i) => `${ordinal(i + 1)} Week`)
+  ];
+
+  const rows = c.students.map(s => {
+    const { toAttendPct, attendedPct } = calcAttendance(s);
+    return [
+      s.sn, s.name, s.matric, toAttendPct + "%", attendedPct + "%",
+      ...s.weeks.map(w => w === "P" ? "Present" : w === "A" ? "Absent" : "")
+    ];
+  });
+
+  const wsData = [[`ATTENDANCE REGISTER — ${c.code}`], [c.title], [], header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+  XLSX.writeFile(wb, `${c.code}_Attendance_Register.xlsx`);
+  showToast("📊 Excel exported", "success");
+}
+
+/* =================================================================
+   STUDENT PORTAL
+   ================================================================= */
+function showStudent(matric) {
+  document.getElementById("studentView").style.display = "block";
+  document.getElementById("adminView").style.display = "none";
+  document.getElementById("lecturerView").style.display = "none";
+
+  const enrolled = [];
+  courses.forEach(c => {
+    const s = c.students.find(x => x.matric.toLowerCase() === matric.toLowerCase());
+    if (s) enrolled.push({ course: c, student: s });
+  });
+
+  document.getElementById("studentMeta").textContent = `Matric: ${matric}`;
+
+  if (enrolled.length === 0) {
+    document.getElementById("studentCards").innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><h3>No enrollments found</h3><p>You are not enrolled in any course yet.</p></div>`;
+    return;
+  }
+
+  document.getElementById("studentCards").innerHTML = enrolled.map(({ course, student }) => {
+    const { attendedPct } = calcAttendance(student);
+    const good = attendedPct >= 75;
+    return `
+      <div class="course-card">
+        <div class="code">${course.code}</div>
+        <h4>${course.title}</h4>
+        <div class="pct ${good ? 'good' : 'bad'}">${attendedPct}%</div>
+        <span class="elig ${good ? 'yes' : 'no'}">${good ? "✓ Eligible for Exam" : "✗ Not Eligible (below 75%)"}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+/* =================================================================
+   INIT
+   ================================================================= */
+document.addEventListener("DOMContentLoaded", () => {
+  // Allow Enter key on login
+  ["email", "password"].forEach(id => {
+    document.getElementById(id).addEventListener("keypress", e => {
+      if (e.key === "Enter") login();
+    });
+  });
+
+  // Close student modal on ESC
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeAddStudentModal();
+  });
+});
+</script>
+</body>
+</html>
+
